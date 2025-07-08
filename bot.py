@@ -1,37 +1,36 @@
-import logging
-from telegram import Update, BotCommand
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = "7767900402:AAHsRjDChEL83frntnxkN3coswjP9sbX0Rg"
+TOKEN = "7767900402:AAHsRjDChEL83frntnxkN3coswjP9sbX0Rg"  # <-- Поставь сюда свой настоящий токен
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-
-logger = logging.getLogger(__name__)
+# Админский чат (где будут уведомления о брони)
+ADMIN_CHAT_ID = -5676657478  # <-- замени на свой чат id
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Привет! Я бот кальянной Тайга Family.")
+    keyboard = [
+        [InlineKeyboardButton("Забронировать", callback_data="book")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Добро пожаловать! Вы можете сделать бронь:", reply_markup=reply_markup)
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Напиши /start чтобы начать.")
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
 
-async def book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    message = (
-        f"📩 Новая бронь от @{user.username or user.first_name}:\n"
-        f"{' '.join(context.args)}"
-    )
-    # Здесь можно добавить отправку админам или запись в базу
-    await update.message.reply_text("Спасибо за бронь! Мы скоро свяжемся.")
+    if query.data == "book":
+        user = query.from_user
+        message = (
+            f"📩 Новая бронь от @{user.username or user.first_name}.\n"
+            f"ID пользователя: {user.id}"
+        )
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=message)
+        await query.edit_message_text("Спасибо! Ваша бронь отправлена администратору.")
 
-def main() -> None:
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("book", book))
+    app.add_handler(CallbackQueryHandler(button_handler))
 
     app.run_polling()
 
