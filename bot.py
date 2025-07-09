@@ -14,7 +14,10 @@ from telegram.ext import (
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+admin_id_env = os.getenv("ADMIN_ID")
+if admin_id_env is None:
+    raise ValueError("Environment variable ADMIN_ID is not set!")
+ADMIN_ID = int(admin_id_env)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
