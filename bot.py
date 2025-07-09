@@ -1,85 +1,50 @@
-import logging
-import os
-from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CallbackContext,
-    CallbackQueryHandler,
-    CommandHandler,
-    ConversationHandler,
-    MessageHandler,
-    filters,
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
 
-load_dotenv()
 BOT_TOKEN = "7767900402:AAHsRjDChEL83frntnxkN3coswjP9sbX0Rg"
-ADMIN_ID = 5676657478  # ← сюда подставь свой Telegram ID
+ADMIN_ID = 5676657478
 
+bookings = []
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-NAME, PHONE, TIME = range(3)
-
-def start(update: Update, context: CallbackContext):
-    keyboard = [[InlineKeyboardButton("📅 Забронировать стол", callback_data="book")]]
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [[InlineKeyboardButton("Забронировать", callback_data="book")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Добро пожаловать в кальянную Taiga Family!", reply_markup=reply_markup)
+    await update.message.reply_text("Добро пожаловать в кальянную Тайга Family! 🔥\nНажмите кнопку ниже, чтобы сделать бронь:", reply_markup=reply_markup)
 
-def start_booking(update: Update, context: CallbackContext):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
-    query.message.reply_text("Введите ваше имя:")
-    return NAME
+    await query.answer()
 
-def get_name(update: Update, context: CallbackContext):
-    context.user_data["name"] = update.message.text
-    update.message.reply_text("Введите ваш номер телефона:")
-    return PHONE
+    user = query.from_user
+    booking_info = f"👤 {user.first_name} (@{user.username or 'без username'}) забронировал столик."
 
-def get_phone(update: Update, context: CallbackContext):
-    context.user_data["phone"] = update.message.text
-    update.message.reply_text("На какое время хотите сделать бронь?")
-    return TIME
+    bookings.append(booking_info)
 
-def get_time(update: Update, context: CallbackContext):
-    context.user_data["time"] = update.message.text
-    name = context.user_data["name"]
-    phone = context.user_data["phone"]
-    time = context.user_data["time"]
+    # Уведомление пользователю
+    await query.edit_message_text("✅ Ваша бронь принята! Мы вас ждём 🙌")
 
-    text = (
-        f"🔔 Новая бронь!\n\n"
-        f"👤 Имя: {name}\n"
-        f"📞 Телефон: {phone}\n"
-        f"🕒 Время: {time}"
-    )
+    # Уведомление админу
+    await context.bot.send_message(chat_id=ADMIN_ID, text=f"📥 Новая бронь:\n{booking_info}")
 
-    context.bot.send_message(chat_id=ADMIN_ID, text=text)
-    update.message.reply_text("Ваша бронь принята! Ждём вас 🤍")
-    return ConversationHandler.END
+async def show_bookings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔️ У вас нет доступа к этой команде.")
+        return
 
-def cancel(update: Update, context: CallbackContext):
-    update.message.reply_text("Бронирование отменено.")
-    return ConversationHandler.END
+    if bookings:
+        text = "\n\n".join(bookings)
+        await update.message.reply_text(f"📋 Все брони:\n\n{text}")
+    else:
+        await update.message.reply_text("⛔️ Пока нет броней.")
 
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(start_booking, pattern="^book$")],
-        states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],
-            TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_time)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("bookings", show_bookings))
+    app.add_handler(CallbackQueryHandler(button_handler))
 
+    print("Бот запущен...")
     app.run_polling()
 
 if __name__ == "__main__":
