@@ -15,7 +15,7 @@ from telegram.ext import (
 load_dotenv()
 BOT_TOKEN = "7767900402:AAHsRjDChEL83frntnxkN3coswjP9sbX0Rg"
 ADMIN_ID = 5676657478  # ← сюда подставь свой Telegram ID
-ADMIN_ID = int(admin_id_env)
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
